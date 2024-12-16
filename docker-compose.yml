@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   distributor:
-    image: ${ECR_REPOSITORY}/distributor:latest
+    image: ${ECR_REPOSITORY}/peekaboo-game:distributor-latest
     container_name: distributor
     hostname: distributor
     networks:
@@ -13,7 +13,7 @@ services:
       - ./packages/common/config/.env
 
   game:
-    image: ${ECR_REPOSITORY}/game:latest
+    image: ${ECR_REPOSITORY}/peekaboo-game:game-latest
     container_name: game
     hostname: game
     networks:
@@ -28,7 +28,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   lobby:
-    image: ${ECR_REPOSITORY}/lobby:latest
+    image: ${ECR_REPOSITORY}/peekaboo-game:lobby-latest
     container_name: lobby
     hostname: lobby
     networks:
@@ -41,7 +41,7 @@ services:
       - game
 
   account:
-    image: ${ECR_REPOSITORY}/account:latest
+    image: ${ECR_REPOSITORY}/peekaboo-game:account-latest
     container_name: account
     hostname: account
     networks:
@@ -54,7 +54,7 @@ services:
       - lobby
 
   session:
-    image: ${ECR_REPOSITORY}/session:latest
+    image: ${ECR_REPOSITORY}/peekaboo-game:session-latest
     container_name: session
     hostname: session
     networks:
@@ -67,7 +67,7 @@ services:
       - account
 
   gateway:
-    image: ${ECR_REPOSITORY}/gateway:latest
+    image: ${ECR_REPOSITORY}/peekaboo-game:gateway-latest
     container_name: gateway
     hostname: gateway
     networks:
