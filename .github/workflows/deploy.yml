@@ -6,7 +6,6 @@ on:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: test-node
 
 jobs:
   deploy:
@@ -53,24 +52,24 @@ jobs:
             echo "Building and pushing $service..."
             docker buildx build \
               --platform linux/amd64 \
-              -t $ECR_REGISTRY/test-node/$service:$IMAGE_TAG \
-              -t $ECR_REGISTRY/test-node/$service:latest \
+              -t $ECR_REGISTRY/test-node:$service-$IMAGE_TAG \
+              -t $ECR_REGISTRY/test-node:$service-latest \
               -f apps/$service/dockerfile .
             
-            docker push $ECR_REGISTRY/test-node/$service:$IMAGE_TAG
-            docker push $ECR_REGISTRY/test-node/$service:latest
+            docker push $ECR_REGISTRY/test-node:$service-$IMAGE_TAG
+            docker push $ECR_REGISTRY/test-node:$service-latest
           done
 
           # Dedicated 서버 빌드 및 푸시
           echo "Building and pushing Dedicated server..."
           docker buildx build \
             --platform linux/amd64 \
-            -t $ECR_REGISTRY/test-node/dedicated:$IMAGE_TAG \
-            -t $ECR_REGISTRY/test-node/dedicated:latest \
+            -t $ECR_REGISTRY/test-node:dedicated-$IMAGE_TAG \
+            -t $ECR_REGISTRY/test-node:dedicated-latest \
             -f apps/game/dedicated/dockerfile .
 
-          docker push $ECR_REGISTRY/test-node/dedicated:$IMAGE_TAG
-          docker push $ECR_REGISTRY/test-node/dedicated:latest
+          docker push $ECR_REGISTRY/test-node:dedicated-$IMAGE_TAG
+          docker push $ECR_REGISTRY/test-node:dedicated-latest
 
       # 7. EC2로 배포
       - name: Deploy to EC2
