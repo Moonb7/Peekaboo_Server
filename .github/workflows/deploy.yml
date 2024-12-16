@@ -91,16 +91,26 @@ jobs:
           script: |
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
 
+            # EC2에서 작업할 디렉토리 생성
+            mkdir -p /home/ubuntu/app
             cd /home/ubuntu/app
 
-            # 분산 서버 실행
-            echo "Starting distributed services..."
-            docker-compose --env-file ./packages/common/config/.env down
-            docker-compose --env-file ./packages/common/config/.env pull
-            docker-compose --env-file ./packages/common/config/.env up -d
+            # docker-compose 파일이 있는지 확인 후 실행
+            if [ -f docker-compose.yml ]; then
+              echo "docker-compose.yml found, starting services..."
+              docker-compose --env-file ./packages/common/config/.env down
+              docker-compose --env-file ./packages/common/config/.env pull
+              docker-compose --env-file ./packages/common/config/.env up -d
+            else
+              echo "docker-compose.yml not found!"
+            fi
 
             # Dedicated 서버 실행
-            echo "Starting Dedicated server..."
-            docker-compose --env-file ./apps/game/dedicated/src/constants/.env down
-            docker-compose --env-file ./apps/game/dedicated/src/constants/.env pull
-            docker-compose --env-file ./apps/game/dedicated/src/constants/.env up -d
+            if [ -f ./apps/game/dedicated/src/constants/docker-compose.yml ]; then
+              echo "Starting Dedicated server..."
+              docker-compose --env-file ./apps/game/dedicated/src/constants/.env down
+              docker-compose --env-file ./apps/game/dedicated/src/constants/.env pull
+              docker-compose --env-file ./apps/game/dedicated/src/constants/.env up -d
+            else
+              echo "Dedicated docker-compose.yml not found!"
+            fi
