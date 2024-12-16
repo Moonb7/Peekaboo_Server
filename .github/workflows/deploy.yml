@@ -32,28 +32,26 @@ jobs:
 
       # 4. MSA용 .env 파일 생성
       - name: Create .env for MSA
-        run: echo "${{ secrets.MSA_ENV }}" > ./packages/common/config/.env.msa
+        run: |
+          echo "${{ secrets.MSA_ENV }}" > ./packages/common/config/.env
 
       # 5. Dedicated용 .env 파일 생성
       - name: Create .env for Dedicated
         run: |
-          echo "${{ secrets.DEDICATED_ENV }}" > ./packages/common/config/.env.dedicated
-          # Dedicated 경로로 복사
-          mkdir -p ./apps/game/dedicated/src/constants
-          cp ./packages/common/config/.env.dedicated ./apps/game/dedicated/src/constants/.env
+          echo "${{ secrets.DEDICATED_ENV }}" > ./apps/game/dedicated/src/constants/.env
 
       # 6. Docker 이미지 빌드 및 푸시
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build and push images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # MSA 서비스 빌드 및 푸시
+          # 분산 서버 빌드 및 푸시
           services=("distributor" "game" "lobby" "account" "session" "gateway")
           for service in "${services[@]}"; do
             echo "Building and pushing $service..."
-            docker build \
-              --env-file ./packages/common/config/.env.msa \
+            docker buildx build \
+              --platform linux/amd64 \
               -t $ECR_REGISTRY/$service:$IMAGE_TAG \
               -t $ECR_REGISTRY/$service:latest \
               -f apps/$service/dockerfile .
@@ -64,7 +62,8 @@ jobs:
 
           # Dedicated 서버 빌드 및 푸시
           echo "Building and pushing Dedicated server..."
-          docker build \
+          docker buildx build \
+            --platform linux/amd64 \
             -t $ECR_REGISTRY/dedicated:$IMAGE_TAG \
             -t $ECR_REGISTRY/dedicated:latest \
             -f apps/game/dedicated/dockerfile .
@@ -84,14 +83,14 @@ jobs:
 
             cd /home/ubuntu/app
 
-            # MSA 서버용 도커 컴포즈 실행
-            echo "Starting MSA services..."
-            docker-compose --env-file ./packages/common/config/.env.msa down
-            docker-compose --env-file ./packages/common/config/.env.msa pull
-            docker-compose --env-file ./packages/common/config/.env.msa up -d
+            # 분산 서버 실행
+            echo "Starting distributed services..."
+            docker-compose --env-file ./packages/common/config/.env down
+            docker-compose --env-file ./packages/common/config/.env pull
+            docker-compose --env-file ./packages/common/config/.env up -d
 
-            # Dedicated 서버용 도커 컴포즈 실행
+            # Dedicated 서버 실행
             echo "Starting Dedicated server..."
-            docker-compose --env-file ./packages/common/config/.env.dedicated down
-            docker-compose --env-file ./packages/common/config/.env.dedicated pull
-            docker-compose --env-file ./packages/common/config/.env.dedicated up -d
+            docker-compose --env-file ./apps/game/dedicated/src/constants/.env down
+            docker-compose --env-file ./apps/game/dedicated/src/constants/.env pull
+            docker-compose --env-file ./apps/game/dedicated/src/constants/.env up -d
