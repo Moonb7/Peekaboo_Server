@@ -8,10 +8,7 @@ COPY apps/game/master/package.json ./apps/game/master/
 COPY packages/common ./packages/common
 COPY packages/modules ./packages/modules
 
-RUN apk add --no-cache docker-cli && \
-    which docker && \
-    docker --version && \
-    curl -fsSL https://get.docker.com | sh
+RUN apk add --no-cache docker-cli 
 
 # 의존성 설치
 RUN yarn install --frozen-lockfile

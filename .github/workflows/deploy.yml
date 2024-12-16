@@ -1,13 +1,12 @@
-# .github/workflows/deploy.yml
 name: Deploy to Amazon ECR and EC2
 
 on:
   push:
-    branches: ['dockerTest']
+    branches: ['dockerTest'] # dockerTest 브랜치에 푸시될 때 실행
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  AWS_REGION: ${{ secrets.AWS_REGION }} # AWS 리전 정보
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }} # ECR 리포지토리 이름 (Secrets에서 가져옴)
 
 jobs:
   deploy:
@@ -15,9 +14,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Git Checkout
       - name: Checkout
         uses: actions/checkout@v3
 
+      # 2. AWS 인증 설정
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -25,20 +26,31 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # 3. Amazon ECR 로그인
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
+      # 4. MSA용 .env 파일 생성
+      - name: Create .env for MSA
+        run: echo "${{ secrets.MSA_ENV }}" > ./packages/common/config/.env
+
+      # 5. 데디케이트용 .env 파일 생성
+      - name: Create .env for Dedicated
+        run: echo "${{ secrets.DEDICATED_ENV }}" > ./src/constants/.env
+
+      # 6. Docker 이미지 빌드 및 푸시
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          # MSA 서비스 빌드 및 푸시
           services=("distributor" "game" "lobby" "account" "session" "gateway")
-
           for service in "${services[@]}"; do
-            echo "Building $service..."
+            echo "Building and pushing $service..."
             docker build \
+              --env-file ./packages/common/config/.env \
               -t $ECR_REGISTRY/$service:$IMAGE_TAG \
               -t $ECR_REGISTRY/$service:latest \
               -f apps/$service/dockerfile .
@@ -47,7 +59,10 @@ jobs:
             docker push $ECR_REGISTRY/$service:latest
           done
 
+          # 데디케이트 서버 빌드 및 푸시
+          echo "Building and pushing Dedicated server..."
           docker build \
+            --env-file ./src/constants/.env \
             -t $ECR_REGISTRY/dedicated:$IMAGE_TAG \
             -t $ECR_REGISTRY/dedicated:latest \
             -f apps/game/dedicated/dockerfile .
@@ -55,6 +70,7 @@ jobs:
           docker push $ECR_REGISTRY/dedicated:$IMAGE_TAG
           docker push $ECR_REGISTRY/dedicated:latest
 
+      # 7. EC2로 배포
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -64,8 +80,16 @@ jobs:
           script: |
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
 
-            docker-compose down
+            cd /home/ubuntu/app
 
-            docker-compose pull
+            # MSA 서버용 도커 컴포즈 실행
+            echo "Starting MSA services..."
+            docker-compose --env-file ./packages/common/config/.env down
+            docker-compose --env-file ./packages/common/config/.env pull
+            docker-compose --env-file ./packages/common/config/.env up -d
 
-            docker-compose up -d
+            # 데디케이트 서버용 도커 컴포즈 실행
+            echo "Starting Dedicated server..."
+            docker-compose --env-file ./src/constants/.env down
+            docker-compose --env-file ./src/constants/.env pull
+            docker-compose --env-file ./src/constants/.env up -d
