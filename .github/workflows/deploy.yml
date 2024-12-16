@@ -50,11 +50,20 @@ jobs:
           services=("distributor" "game" "lobby" "account" "session" "gateway")
           for service in "${services[@]}"; do
             echo "Building and pushing $service..."
-            docker buildx build \
-              --platform linux/amd64 \
-              -t $ECR_REGISTRY/test-node:$service-$IMAGE_TAG \
-              -t $ECR_REGISTRY/test-node:$service-latest \
-              -f apps/$service/dockerfile .
+            if [ "$service" == "game" ]; then
+              # game 서비스의 Dockerfile 경로는 다르므로 따로 지정
+              docker buildx build \
+                --platform linux/amd64 \
+                -t $ECR_REGISTRY/test-node:$service-$IMAGE_TAG \
+                -t $ECR_REGISTRY/test-node:$service-latest \
+                -f apps/game/master/Dockerfile .  # game 서비스는 경로 다르게 설정
+            else
+              docker buildx build \
+                --platform linux/amd64 \
+                -t $ECR_REGISTRY/test-node:$service-$IMAGE_TAG \
+                -t $ECR_REGISTRY/test-node:$service-latest \
+                -f apps/$service/Dockerfile .  # 다른 서비스들은 기존 경로 사용
+            fi
             
             docker push $ECR_REGISTRY/test-node:$service-$IMAGE_TAG
             docker push $ECR_REGISTRY/test-node:$service-latest
@@ -66,7 +75,7 @@ jobs:
             --platform linux/amd64 \
             -t $ECR_REGISTRY/test-node:dedicated-$IMAGE_TAG \
             -t $ECR_REGISTRY/test-node:dedicated-latest \
-            -f apps/game/dedicated/dockerfile .
+            -f apps/game/dedicated/Dockerfile .
 
           docker push $ECR_REGISTRY/test-node:dedicated-$IMAGE_TAG
           docker push $ECR_REGISTRY/test-node:dedicated-latest
