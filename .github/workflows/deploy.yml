@@ -72,14 +72,18 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT }}
           script: |
             cd /home/ubuntu/app
 
             # ECR 로그인
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
 
-            # 기존 컨테이너들 정리 및 재시작
-            docker-compose down
-            docker-compose pull
-            docker-compose up -d
+            # 환경 변수 파일 생성
+            mkdir -p packages/common/config
+            echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" > packages/common/config/.env
+            echo "${{ secrets.MSA_ENV }}" >> packages/common/config/.env
+
+            # Docker Compose 실행
+            docker compose down
+            docker compose pull
+            docker compose up -d
