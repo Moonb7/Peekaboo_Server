@@ -2,11 +2,10 @@ name: Deploy to Amazon ECR and EC2
 
 on:
   push:
-    branches: ['dockerTest'] # dockerTest 브랜치에 푸시될 때 실행
+    branches: ['dockerTest']
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }} # AWS 리전 정보
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }} # ECR 리포지토리 이름 (Secrets에서 가져옴)
+  AWS_REGION: ${{ secrets.AWS_REGION }}
 
 jobs:
   deploy:
@@ -33,11 +32,15 @@ jobs:
 
       # 4. MSA용 .env 파일 생성
       - name: Create .env for MSA
-        run: echo "${{ secrets.MSA_ENV }}" > ./packages/common/config/.env
+        run: echo "${{ secrets.MSA_ENV }}" > ./packages/common/config/.env.msa
 
-      # 5. 데디케이트용 .env 파일 생성
+      # 5. Dedicated용 .env 파일 생성
       - name: Create .env for Dedicated
-        run: echo "${{ secrets.DEDICATED_ENV }}" > ./src/constants/.env
+        run: |
+          echo "${{ secrets.DEDICATED_ENV }}" > ./packages/common/config/.env.dedicated
+          # Dedicated 경로로 복사
+          mkdir -p ./apps/game/dedicated/src/constants
+          cp ./packages/common/config/.env.dedicated ./apps/game/dedicated/src/constants/.env
 
       # 6. Docker 이미지 빌드 및 푸시
       - name: Build, tag, and push image to Amazon ECR
@@ -50,7 +53,7 @@ jobs:
           for service in "${services[@]}"; do
             echo "Building and pushing $service..."
             docker build \
-              --env-file ./packages/common/config/.env \
+              --env-file ./packages/common/config/.env.msa \
               -t $ECR_REGISTRY/$service:$IMAGE_TAG \
               -t $ECR_REGISTRY/$service:latest \
               -f apps/$service/dockerfile .
@@ -59,10 +62,9 @@ jobs:
             docker push $ECR_REGISTRY/$service:latest
           done
 
-          # 데디케이트 서버 빌드 및 푸시
+          # Dedicated 서버 빌드 및 푸시
           echo "Building and pushing Dedicated server..."
           docker build \
-            --env-file ./src/constants/.env \
             -t $ECR_REGISTRY/dedicated:$IMAGE_TAG \
             -t $ECR_REGISTRY/dedicated:latest \
             -f apps/game/dedicated/dockerfile .
@@ -84,12 +86,12 @@ jobs:
 
             # MSA 서버용 도커 컴포즈 실행
             echo "Starting MSA services..."
-            docker-compose --env-file ./packages/common/config/.env down
-            docker-compose --env-file ./packages/common/config/.env pull
-            docker-compose --env-file ./packages/common/config/.env up -d
+            docker-compose --env-file ./packages/common/config/.env.msa down
+            docker-compose --env-file ./packages/common/config/.env.msa pull
+            docker-compose --env-file ./packages/common/config/.env.msa up -d
 
-            # 데디케이트 서버용 도커 컴포즈 실행
+            # Dedicated 서버용 도커 컴포즈 실행
             echo "Starting Dedicated server..."
-            docker-compose --env-file ./src/constants/.env down
-            docker-compose --env-file ./src/constants/.env pull
-            docker-compose --env-file ./src/constants/.env up -d
+            docker-compose --env-file ./packages/common/config/.env.dedicated down
+            docker-compose --env-file ./packages/common/config/.env.dedicated pull
+            docker-compose --env-file ./packages/common/config/.env.dedicated up -d
