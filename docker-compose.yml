@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   distributor:
-    build:
-      context: .
-      dockerfile: apps/distributor/dockerfile
+    image: 442042527855.dkr.ecr.ap-northeast-2.amazonaws.com/test-node/distributor:latest
     container_name: distributor
     hostname: distributor
     networks:
@@ -15,9 +13,7 @@ services:
       - ./packages/common/config/.env
 
   game:
-    build:
-      context: .
-      dockerfile: apps/game/master/dockerfile
+    image: 442042527855.dkr.ecr.ap-northeast-2.amazonaws.com/test-node/game:latest
     container_name: game
     hostname: game
     networks:
@@ -32,9 +28,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   lobby:
-    build:
-      context: .
-      dockerfile: apps/lobby/dockerfile
+    image: 442042527855.dkr.ecr.ap-northeast-2.amazonaws.com/test-node/lobby:latest
     container_name: lobby
     hostname: lobby
     networks:
@@ -47,9 +41,7 @@ services:
       - game
 
   account:
-    build:
-      context: .
-      dockerfile: apps/account/dockerfile
+    image: 442042527855.dkr.ecr.ap-northeast-2.amazonaws.com/test-node/account:latest
     container_name: account
     hostname: account
     networks:
@@ -62,9 +54,7 @@ services:
       - lobby
 
   session:
-    build:
-      context: .
-      dockerfile: apps/session/dockerfile
+    image: 442042527855.dkr.ecr.ap-northeast-2.amazonaws.com/test-node/session:latest
     container_name: session
     hostname: session
     networks:
@@ -77,9 +67,7 @@ services:
       - account
 
   gateway:
-    build:
-      context: .
-      dockerfile: apps/gateway/dockerfile
+    image: 442042527855.dkr.ecr.ap-northeast-2.amazonaws.com/test-node/gateway:latest
     container_name: gateway
     hostname: gateway
     networks:

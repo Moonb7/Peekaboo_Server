@@ -1,0 +1,77 @@
+# .github/workflows/deploy.yml
+name: Deploy to Amazon ECR and EC2
+
+on:
+  push:
+    branches: ['dockerTest']
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # MSA 서비스들 빌드 및 푸시
+          services=("distributor" "game" "lobby" "account" "session" "gateway")
+
+          for service in "${services[@]}"; do
+            echo "Building $service..."
+            docker build \
+              -t $ECR_REGISTRY/$service:$IMAGE_TAG \
+              -t $ECR_REGISTRY/$service:latest \
+              -f apps/$service/dockerfile .
+            
+            docker push $ECR_REGISTRY/$service:$IMAGE_TAG
+            docker push $ECR_REGISTRY/$service:latest
+          done
+
+          # Dedicated 서버 이미지 빌드 및 푸시
+          docker build \
+            -t $ECR_REGISTRY/dedicated:$IMAGE_TAG \
+            -t $ECR_REGISTRY/dedicated:latest \
+            -f apps/game/dedicated/dockerfile .
+
+          docker push $ECR_REGISTRY/dedicated:$IMAGE_TAG
+          docker push $ECR_REGISTRY/dedicated:latest
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # ECR 로그인
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+
+            # 기존 컨테이너 정리
+            docker-compose down
+
+            # 새 이미지 풀
+            docker-compose pull
+
+            # 컨테이너 재시작
+            docker-compose up -d
