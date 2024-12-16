@@ -34,7 +34,6 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # MSA 서비스들 빌드 및 푸시
           services=("distributor" "game" "lobby" "account" "session" "gateway")
 
           for service in "${services[@]}"; do
@@ -48,7 +47,6 @@ jobs:
             docker push $ECR_REGISTRY/$service:latest
           done
 
-          # Dedicated 서버 이미지 빌드 및 푸시
           docker build \
             -t $ECR_REGISTRY/dedicated:$IMAGE_TAG \
             -t $ECR_REGISTRY/dedicated:latest \
@@ -64,14 +62,10 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # ECR 로그인
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
 
-            # 기존 컨테이너 정리
             docker-compose down
 
-            # 새 이미지 풀
             docker-compose pull
 
-            # 컨테이너 재시작
             docker-compose up -d
